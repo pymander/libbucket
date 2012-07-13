@@ -1,8 +1,30 @@
--*- text -*-
+#+TITLE: Libbucket
+#+LANGUAGE: en
+#+AUTHOR: Erik L. Arneson
+#+EMAIL: pymander@gmail.com
+#+DESCRIPTION: A dynamic string buffer library for C
+#+KEYWORDS: string, buffer, dynamic string, lex, yacc
 
-This is a simple string buffer library, called libbucket.  You can
-hopefully learn more about it by reading the header files for now.  If
-you have specific questions, feel free to e-mail me.  I haven't gotten
-around to writing the documentation yet.
+* Introduction
 
+  This is a dynamic string buffer library for C.  It was originally
+  developed at Musician's Friend in 2000-2002, and was released open
+  source in March of 2005.  I believe that the intent was to release
+  it under the GNU license, though at the time I never got around to
+  updating the licensing information.
+
+* Building
+
+  It may be a bit out-of-date, but it should build using the standard
+  autoconf toolset.
+
+* Documentation
+
+  The documentation is in TeXinfo format.  It's thorough and it's
+  located in the doc/ directory.
+
+* Questions, etc.
+
+  Please contact me at pymander<at>gmail.com with any questions.
+  Thanks for checking this little library out!
 
