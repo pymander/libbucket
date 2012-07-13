@@ -1,0 +1,20 @@
+2002-03-06  Erik Arneson  <earneson@musiciansfriend.com>
+
+	* configure.in: New release fixes installation directory for
+	header files.
+
+2002-01-16  Erik Arneson  <erik@aarg.net>
+
+	* src/bucket.c (strb_puts): Replaced strb_buffer(), which is now a
+	macro for strb_puts.
+	(strb_putc): New function.
+	(strb_concat): New function.  Concatenate two buckets together.
+	(strb_vappendf): New function.
+	(strb_appendf): New function.  Sprintf/printf for string buckets.
+
+2002-01-14  Erik Arneson  <erik@aarg.net>
+
+	* configure.in: First release as a separate library.  All of this
+	stuff has been taken from internal Musician's Friend projects that
+	I'm not going to mention in public.  And yes, it's legal.
+

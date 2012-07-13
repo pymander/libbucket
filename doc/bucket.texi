@@ -1,0 +1,448 @@
+\input texinfo @c -*- texinfo -*-
+@c %** start of header
+@setfilename bucket
+@settitle The String Bucket Library
+@setchapternewpage on
+@c %**end of header
+
+@c Automake should be creating this file, right?
+@include version.texi
+
+@c Merge our indexes together, because this file isn't large enough to
+@c warrant multiple indexes.
+@syncodeindex fn cp
+
+@titlepage
+@title The String Bucket Library
+@subtitle libbucket @value{VERSION}
+@subtitle @value{UPDATED}
+@author Erik Arneson @email{earneson@@musiciansfriend.com,<earneson@@musiciansfriend.com>}
+
+@c  The following two commands
+@c  start the copyright page.
+Copyright @copyright{} 2002 @uref{http://www.musiciansfriend.com/,{Musician's Friend, Inc.}}
+
+All rights reserved.
+@end titlepage
+
+@ifnottex
+@node Top
+@top String Bucket
+
+The string bucket library is a collection of handy string manipulation
+utilities not found in the GNU libc.  In particular, it contains a set
+of functions meant to deal with dynamic strings, which we call buckets,
+and is particularly suited for use in lexers.
+@end ifnottex
+
+@menu
+* Getting Started::     Setting up libbucket.
+* The String Library::  Functions for dealing with strings.
+* String Buckets::      Dynamic string buffers.
+* Use with Lex::        Using String Buckets with lex.
+* Index::               Index of Concepts, Functions, and Variables
+@end menu
+
+@contents
+
+@node Getting Started
+@chapter Getting Started
+@cindex configure
+@cindex compilation
+@cindex installation
+
+This library provides both a selection of helpful string-manipulation
+functions and a set of functions designed to work with dynamic strings.
+These will be outlined in the following chapters, along with a brief
+example outlining how to use the String Bucket library with
+@command{lex}.
+
+The String Bucket library, or libbucket, is extremely easy to compile
+and install.  It uses a standard GNU configure script and is built using
+libtool.  One just needs to run @command{./configure}, @command{make},
+and @command{make install}.
+
+@node The String Library
+@chapter The String Library
+
+The simplest part of libbucket is the string library, a collection of
+functions which do several minor manipulations on strings.  This is the
+part of the library most likely to expand in the future.  Below, the
+component functions are listed.  All of these prototypes are available
+by linking with @option{-lbucket} and accessing the correct prototypes
+with an @code{#include <bucket/strlib.h>}.
+
+@section Altering Whitespace
+@cindex whitespace
+
+There are several handy functions in the string library that can be used
+to alter or remove whitespace from a standard character string.  Most of
+them tend to perform their duties via side effects by altering strings
+in place.  This is done for performance reasons, as it eliminates the
+need to allocate a new copy of the string.
+
+Unless otherwise noted, whitespace is defined as the set of characters
+detected as such by @code{isspace(3)}.  Please see your system
+documentation for more information.
+
+@deftypefun {char *} strspace (char *)
+@cindex whitespace, stripping
+@cindex stripping whitespace
+
+This function removes duplicate whitespace from a string.  This function
+has side-effects; it modifies the passed character pointer in place.  It
+does not allocate any new memory.
+@end deftypefun
+
+@deftypefun {char *} strstriplead  (char *@var{str})
+@cindex stripping whitespace
+
+This function and the next perform very similar duties.  The input
+@var{str} is modified in place by removing any leading whitespace.
+There is no memory allocated.
+@end deftypefun
+
+@deftypefun {char *} strstripfinal (char *@var{str})
+@cindex stripping whitespace
+
+This modifies @var{str} in place by removing all trailing whitespace.
+No memory is allocated.
+@end deftypefun
+
+@section Changing Case
+@cindex Changing Case
+
+The following functions perform their duties by relying on side
+effects.  Unless otherwise noted, they do not allocate additional
+memory.
+
+@deftypefun {char *} strupper (char *@var{str})
+
+This function upper-cases @var{str} by iterating over it and calling
+@code{toupper(3)} on each character.  No additional memory is allocated.
+@end deftypefun
+
+@deftypefun {char *} strlower (char *@var{str})
+
+This function lower-cases @var{str} by iterating over it and calling
+@code{tolower(3)} on each character.  No additional memory is allocated.
+@end deftypefun
+
+@section Gathering Information
+
+Some of the functions in the string library are designed to return vital
+information about strings.  There are a wide variety of such functions
+possible, and many of them have little in common.
+
+@deftypefun {int} strwords (char *@var{str})
+
+This function counts the number of words in @var{str}.  Words are
+defined as sequences of non-whitespace characters separated by one or
+more whitespace characters, as defined by @code{isspace(3)}.  No memory
+is allocated during this process, and no side-effects occur.
+@end deftypefun
+
+@section Other String Operations
+
+@deftypefun {char *} strunesc (char *@var{str})
+
+This functions trasforms all escape sequences in a string into their
+actual counterparts.  For example, @code{\n} will become a literal
+newline and @code{\t} will become a literal tab character.  It will also
+transform @code{\\} into a backslash character.
+@end deftypefun
+
+@node String Buckets
+@chapter String Buckets
+@cindex str_bucket
+@cindex buffers
+@cindex dynamic strings
+@cindex String Buckets
+
+String Buckets, henceforth simply buckets, are dynamicly growing
+strings.  They provide a somewhat efficient and extremely convenient
+method of manipulating dynamic strings in C.  It is also possible to use
+a bucket as a sort of stream, allowing its use with @command{lex} and
+similar programs in place of traditional file-based streams.
+
+All of these functions are accessible by linking against libbucket with
+@option{-lbucket}.  The function prototypes are available via
+@code{#include <bucket/bucket.h>}.
+
+@menu
+* Creating Buckets::    How to initialize a bucket
+* Storing Strings::     Writing to a bucket
+* Retrieving Strings::  Reading from a bucket
+* Reusing Buckets::     Reuse a bucket without destroying it!
+@end menu
+
+@node Creating Buckets
+@section Creating Buckets
+@cindex bucket creation
+@cindex allocating buckets
+@cindex memory usage
+
+In order to utilize the power of buckets, one must first create a new
+bucket and ready it for use.  By default, a bucket is created with no
+preallocated space, which can slow down initial buffering.
+
+@deftypefun {str_bucket *} new_str_bucket (void)
+
+This function allocates a new @code{str_bucket} structure and returns a
+pointer to the chunk of memory.  It will return @code{NULL} if memory
+allocation fails.  All important parts of the new @code{str_bucket} are
+set to @code{0} or @code{NULL}.
+@end deftypefun
+
+@deftypefun {void} strb_ready (str_bucket *@var{b}, int @var{space})
+
+If one has a rough idea of the amount of data that will be stored in
+bucket @var{b}, this function can be used to pre-allocate memory, namely
+@var{space} bytes.  If @var{space} is zero, then it will default to
+@code{STRB_SIZE}, or 4096 bytes.
+
+This is a great function to use for improving code efficiency as it
+prevents numerous @code{realloc(3)} calls.  This function will also
+clear out any string data already stored in the bucket, so make sure not
+to call it on a bucket whose contents are still needed.
+@end deftypefun
+
+@deftypefun {void} destroy_str_bucket (str_bucket *@var{b})
+
+This function frees all memory allocated for bucket @var{b}.
+@end deftypefun
+
+@node Storing Strings
+@section Storing Strings
+@cindex storage, strings
+@cindex bucket input
+@cindex buffering input
+@cindex incremental read
+
+Buckets are all about storing strings, and once a bucket is initialized
+(@xref{Creating Buckets}.) there are a collection of functions that can
+be used to append data to the end of a bucket.
+
+Because buckets are designed to grow dynamically, some incremental read
+functions such as @code{strb_getc} (@xref{Retrieving Strings}.) cannot be
+mixed safely with funtions that append data to a bucket.  The reason for
+this is because it is allowable for the bucket storage functions to
+@code{realloc(3)} any time additional storage space is needed, and
+pointers which keep track of the current incremental read location will
+not necessarily be correctly updated.  Please keep this in mind when
+designing your application.
+
+@deftypefun {int} strb_set (str_bucket *@var{b}, char *@var{str})
+@cindex str_bucket
+
+The most basic of the string storage functions, @code{strb_set} sets the
+contents of @var{b} to @var{str}.  It destroys any contents previously
+held in @var{b}, and makes its own copy of @var{str} for storage.
+@end deftypefun
+
+@deftypefun {int} strb_puts (str_bucket *@var{b}, char *@var{str}, size_t @var{len})
+@cindex appending strings
+
+This function appends a copy of @var{str} to the end of the contents of
+@var{b}.  The size of the appended string is assumed to be passed as
+@var{len}.  However, if @var{len} is @code{0} then the size of @var{str}
+will be calculated automatically.  Please note that this function makes
+its own copy of @var{str}.
+@end deftypefun
+
+@deftypefun {int} strb_putc (str_bucket *@var{b}, char @var{c})
+@cindex appending characters
+
+This function simply appends the single character @var{c} to the
+contents of @var{b}.  It ensures that the string stored in @var{b} is
+null-terminated.
+@end deftypefun
+
+@deftypefun {int} strb_concat (str_bucket *@var{dest}, str_bucket *@var{src})
+@cindex concatenating buckets
+
+This function appends the contents of @var{src} to the contents of
+@var{dest}, storing the resulting string in @var{dest}.  It makes its
+own copy of the contents of @var{src}.
+@end deftypefun
+
+@deftypefun {int} strb_appendf (str_bucket *@var{b}, char *@var{fmt}, ...)
+@cindex formatted input
+
+This is like a @code{sprintf(3)} for buckets.  Please see the system
+documentation for @code{sprintf(3)} for a general description of how
+this sort of function works.  The output specified by format @var{fmt}
+is appended to bucket @var{b}.
+
+Here is a table summarizing all of the various conversions.
+
+@table @asis
+
+@item @samp{%b}
+Treat the argument as a bucket, and append a copy of the bucket's
+contents.
+
+@item @samp{%c}
+Treat the argument as an unsigned char.
+
+@item @samp{%s}
+Treat the argument as a null-terminated string, and append a copy of the
+string.
+
+@item @samp{%d}, @samp{%ld}
+Treat the argument as a signed decimal number, or as a signed long
+decimal number.
+
+@item @samp{%X}, @samp{%lX}
+Treat the argument as a signed integer (or long integer) to be appended
+in hexidecimal format.
+
+@item @samp{%%}
+Append a literal % character.
+
+@end table
+
+@end deftypefun
+
+@deftypefun {int} strb_vappendf (str_bucket *@var{b}, char *@var{fmt}, va_list @var{va})
+@cindex internal functions
+
+This is an internal helper function used by @code{strb_appendf}.  It
+should not be called directly.
+@end deftypefun
+
+@node Retrieving Strings
+@section Retrieving Strings
+@cindex Retrieving Strings
+@cindex bucket access
+@cindex bucket strings
+
+Data stored in a bucket would be useless if it were not easily
+retrievable.  As such, the easiest way to retrieve data from a bucket is
+to access that part of the @code{str_bucket} structure directly.  For a
+given bucket pointer @var{b}, one may access @var{b}@code{->bucket} as a
+@code{char *} to retrieve the contents of the bucket.
+
+Other more specialized access methods are detailed below.  Most of these
+are useful in order to duplicate stream behavior for such applications
+as @command{lex}.
+
+@deftypefun {char *} strb_strdup (str_bucket *@var{b})
+
+This function uses @code{strdup(3)} to make a copy of the current
+contents of @var{b}.  The caller is responsible for freeing this
+memory.  Note that @code{NULL} will be returned both in the event of an
+error and if no data is currently stored in @var{b}.
+@end deftypefun
+
+@deftypefun {int} strb_getc (str_bucket *@var{b}, char *@var{buf}, int @var{len})
+
+Created mainly for interfacing with @command{lex}, this function
+utilizes the @code{loc} element of the @code{str_bucket} structure to
+keep a kind of place-holder in bucket @var{b}.  It returns @var{len}
+characters, storing them in @var{buf} as a side-effect.  It does not
+allocate memory.  The return value is the number of characters read.  If
+the end of @var{buf} is found, @code{EOF} is appended to @var{buf}.
+@end deftypefun
+
+@deftypefun {void} strb_ungetc (str_bucket *@var{b}, int @var{count})
+
+This function moves the @code{loc} place-holder back @var{count}
+characters, thus duplicating an @code{ungetc(3)} call on a normal
+filestream.  It will not allow @code{loc} to be pushed back before the
+beginning of the data stored in @var{b}.
+@end deftypefun
+
+@node Reusing Buckets
+@section Reusing Buckets
+@cindex Reusing Buckets
+@findex strb_ready
+@findex strb_set
+
+Once a bucket has been used, it is possible to reuse it without getting
+rid of all of that precious memory that has been allocated.  Two
+previously-discussed functions are perfect for this purpose, namely
+@code{strb_ready} and @code{strb_set}.  However, both of these allocate
+new memory and free old memory.  For this reason, the following function
+exists.
+
+@deftypefun {void} strb_reset (str_bucket *@var{b})
+@cindex resetting buckets
+@cindex bucket reuse
+
+This function uses @code{memset(3)} to zero-out the currently allocated
+buffer in bucket @var{b}.  It also resets all relevant counters and
+pointers.  It does not allocate new memory or free old memory.
+@end deftypefun
+
+@node Use with Lex
+@chapter Use with Lex
+@cindex lex
+@cindex flex
+@cindex lexical parsers
+@cindex Use with Lex
+
+One of the most useful applications of the String Bucket library is to
+use it as a fake input stream with @command{lex(1)}.  This allows a
+lexical analyzer to receive input from a string instead of a normal I/O
+stream, opening a whole new range of possibilities to the resourceful
+programmer. Please note that this has only been tested with modern
+versions of @command{flex(1)}.
+
+Near the top of the rule file, one must redefine the macro
+@code{YY_INPUT} to read input characters from a bucket using
+@code{strb_getc}.  This is fairly simple to do, and a quick outline is
+included below.  Note that this also allows @command{lex} to read
+multiple characters at once, which improves performance.
+
+@findex YY_INPUT
+@findex strb_getc
+@example
+#include <bucket/bucket.h>
+#include <bucket/strlib.h>
+
+str_bucket * Bucket = NULL;
+
+#ifdef YY_INPUT
+# undef YY_INPUT
+#endif
+#define YY_INPUT(buf, result, max_size) memset(buf, 0, max_size); \
+         result = strb_getc(Bucket, buf, max_size);
+@end example
+
+It is then the responsibility of the programmer to write a lexer
+initialization function which points @code{Bucket} at a new bucket and
+populates it with the lexer input.  Something similar to the following
+function will probably serve most needs.
+
+@findex init_lexer
+@findex strb_set
+@findex new_str_bucket
+@example
+int
+init_lexer (char * s)
+@{
+    if (Bucket == NULL) @{
+        Bucket = new_str_bucket();
+        strb_set(Bucket, s);
+    @} else @{
+        strb_reset(Bucket);
+        strb_puts(Bucket, s, 0);
+    @}
+
+    BEGIN INITIAL;
+
+    return 0;
+@}
+@end example
+
+Rules may now be written as normal.  It is also possible for the lexer
+to be used repeatedly by reusing @code{Bucket} via multiple calls to
+@code{init_lexer}.
+
+@node Index
+@unnumbered Index
+
+@printindex cp
+
+@bye

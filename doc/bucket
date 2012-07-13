@@ -1,0 +1,439 @@
+This is bucket, produced by makeinfo version 4.7 from bucket.texi.
+
+
+File: bucket,  Node: Top,  Next: Getting Started,  Up: (dir)
+
+String Bucket
+*************
+
+The string bucket library is a collection of handy string manipulation
+utilities not found in the GNU libc.  In particular, it contains a set
+of functions meant to deal with dynamic strings, which we call buckets,
+and is particularly suited for use in lexers.
+
+* Menu:
+
+* Getting Started::     Setting up libbucket.
+* The String Library::  Functions for dealing with strings.
+* String Buckets::      Dynamic string buffers.
+* Use with Lex::        Using String Buckets with lex.
+* Index::               Index of Concepts, Functions, and Variables
+
+
+File: bucket,  Node: Getting Started,  Next: The String Library,  Prev: Top,  Up: Top
+
+1 Getting Started
+*****************
+
+This library provides both a selection of helpful string-manipulation
+functions and a set of functions designed to work with dynamic strings.
+These will be outlined in the following chapters, along with a brief
+example outlining how to use the String Bucket library with `lex'.
+
+   The String Bucket library, or libbucket, is extremely easy to compile
+and install.  It uses a standard GNU configure script and is built using
+libtool.  One just needs to run `./configure', `make', and `make
+install'.
+
+
+File: bucket,  Node: The String Library,  Next: String Buckets,  Prev: Getting Started,  Up: Top
+
+2 The String Library
+********************
+
+The simplest part of libbucket is the string library, a collection of
+functions which do several minor manipulations on strings.  This is the
+part of the library most likely to expand in the future.  Below, the
+component functions are listed.  All of these prototypes are available
+by linking with `-lbucket' and accessing the correct prototypes with an
+`#include <bucket/strlib.h>'.
+
+2.1 Altering Whitespace
+=======================
+
+There are several handy functions in the string library that can be used
+to alter or remove whitespace from a standard character string.  Most of
+them tend to perform their duties via side effects by altering strings
+in place.  This is done for performance reasons, as it eliminates the
+need to allocate a new copy of the string.
+
+   Unless otherwise noted, whitespace is defined as the set of
+characters detected as such by `isspace(3)'.  Please see your system
+documentation for more information.
+
+ -- Function: char * strspace (char *)
+     This function removes duplicate whitespace from a string.  This
+     function has side-effects; it modifies the passed character
+     pointer in place.  It does not allocate any new memory.
+
+ -- Function: char * strstriplead (char *STR)
+     This function and the next perform very similar duties.  The input
+     STR is modified in place by removing any leading whitespace.
+     There is no memory allocated.
+
+ -- Function: char * strstripfinal (char *STR)
+     This modifies STR in place by removing all trailing whitespace.
+     No memory is allocated.
+
+2.2 Changing Case
+=================
+
+The following functions perform their duties by relying on side
+effects.  Unless otherwise noted, they do not allocate additional
+memory.
+
+ -- Function: char * strupper (char *STR)
+     This function upper-cases STR by iterating over it and calling
+     `toupper(3)' on each character.  No additional memory is allocated.
+
+ -- Function: char * strlower (char *STR)
+     This function lower-cases STR by iterating over it and calling
+     `tolower(3)' on each character.  No additional memory is allocated.
+
+2.3 Gathering Information
+=========================
+
+Some of the functions in the string library are designed to return vital
+information about strings.  There are a wide variety of such functions
+possible, and many of them have little in common.
+
+ -- Function: int strwords (char *STR)
+     This function counts the number of words in STR.  Words are
+     defined as sequences of non-whitespace characters separated by one
+     or more whitespace characters, as defined by `isspace(3)'.  No
+     memory is allocated during this process, and no side-effects occur.
+
+2.4 Other String Operations
+===========================
+
+ -- Function: char * strunesc (char *STR)
+     This functions trasforms all escape sequences in a string into
+     their actual counterparts.  For example, `\n' will become a literal
+     newline and `\t' will become a literal tab character.  It will also
+     transform `\\' into a backslash character.
+
+
+File: bucket,  Node: String Buckets,  Next: Use with Lex,  Prev: The String Library,  Up: Top
+
+3 String Buckets
+****************
+
+String Buckets, henceforth simply buckets, are dynamicly growing
+strings.  They provide a somewhat efficient and extremely convenient
+method of manipulating dynamic strings in C.  It is also possible to use
+a bucket as a sort of stream, allowing its use with `lex' and similar
+programs in place of traditional file-based streams.
+
+   All of these functions are accessible by linking against libbucket
+with `-lbucket'.  The function prototypes are available via `#include
+<bucket/bucket.h>'.
+
+* Menu:
+
+* Creating Buckets::    How to initialize a bucket
+* Storing Strings::     Writing to a bucket
+* Retrieving Strings::  Reading from a bucket
+* Reusing Buckets::     Reuse a bucket without destroying it!
+
+
+File: bucket,  Node: Creating Buckets,  Next: Storing Strings,  Up: String Buckets
+
+3.1 Creating Buckets
+====================
+
+In order to utilize the power of buckets, one must first create a new
+bucket and ready it for use.  By default, a bucket is created with no
+preallocated space, which can slow down initial buffering.
+
+ -- Function: str_bucket * new_str_bucket (void)
+     This function allocates a new `str_bucket' structure and returns a
+     pointer to the chunk of memory.  It will return `NULL' if memory
+     allocation fails.  All important parts of the new `str_bucket' are
+     set to `0' or `NULL'.
+
+ -- Function: void strb_ready (str_bucket *B, int SPACE)
+     If one has a rough idea of the amount of data that will be stored
+     in bucket B, this function can be used to pre-allocate memory,
+     namely SPACE bytes.  If SPACE is zero, then it will default to
+     `STRB_SIZE', or 4096 bytes.
+
+     This is a great function to use for improving code efficiency as it
+     prevents numerous `realloc(3)' calls.  This function will also
+     clear out any string data already stored in the bucket, so make
+     sure not to call it on a bucket whose contents are still needed.
+
+ -- Function: void destroy_str_bucket (str_bucket *B)
+     This function frees all memory allocated for bucket B.
+
+
+File: bucket,  Node: Storing Strings,  Next: Retrieving Strings,  Prev: Creating Buckets,  Up: String Buckets
+
+3.2 Storing Strings
+===================
+
+Buckets are all about storing strings, and once a bucket is initialized
+(*Note Creating Buckets::.) there are a collection of functions that can
+be used to append data to the end of a bucket.
+
+   Because buckets are designed to grow dynamically, some incremental
+read functions such as `strb_getc' (*Note Retrieving Strings::.) cannot
+be mixed safely with funtions that append data to a bucket.  The reason
+for this is because it is allowable for the bucket storage functions to
+`realloc(3)' any time additional storage space is needed, and pointers
+which keep track of the current incremental read location will not
+necessarily be correctly updated.  Please keep this in mind when
+designing your application.
+
+ -- Function: int strb_set (str_bucket *B, char *STR)
+     The most basic of the string storage functions, `strb_set' sets the
+     contents of B to STR.  It destroys any contents previously held in
+     B, and makes its own copy of STR for storage.
+
+ -- Function: int strb_puts (str_bucket *B, char *STR, size_t LEN)
+     This function appends a copy of STR to the end of the contents of
+     B.  The size of the appended string is assumed to be passed as
+     LEN.  However, if LEN is `0' then the size of STR will be
+     calculated automatically.  Please note that this function makes
+     its own copy of STR.
+
+ -- Function: int strb_putc (str_bucket *B, char C)
+     This function simply appends the single character C to the
+     contents of B.  It ensures that the string stored in B is
+     null-terminated.
+
+ -- Function: int strb_concat (str_bucket *DEST, str_bucket *SRC)
+     This function appends the contents of SRC to the contents of DEST,
+     storing the resulting string in DEST.  It makes its own copy of
+     the contents of SRC.
+
+ -- Function: int strb_appendf (str_bucket *B, char *FMT, ...)
+     This is like a `sprintf(3)' for buckets.  Please see the system
+     documentation for `sprintf(3)' for a general description of how
+     this sort of function works.  The output specified by format FMT
+     is appended to bucket B.
+
+     Here is a table summarizing all of the various conversions.
+
+    `%b'
+          Treat the argument as a bucket, and append a copy of the
+          bucket's contents.
+
+    `%c'
+          Treat the argument as an unsigned char.
+
+    `%s'
+          Treat the argument as a null-terminated string, and append a
+          copy of the string.
+
+    `%d', `%ld'
+          Treat the argument as a signed decimal number, or as a signed
+          long decimal number.
+
+    `%X', `%lX'
+          Treat the argument as a signed integer (or long integer) to
+          be appended in hexidecimal format.
+
+    `%%'
+          Append a literal % character.
+
+
+
+ -- Function: int strb_vappendf (str_bucket *B, char *FMT, va_list VA)
+     This is an internal helper function used by `strb_appendf'.  It
+     should not be called directly.
+
+
+File: bucket,  Node: Retrieving Strings,  Next: Reusing Buckets,  Prev: Storing Strings,  Up: String Buckets
+
+3.3 Retrieving Strings
+======================
+
+Data stored in a bucket would be useless if it were not easily
+retrievable.  As such, the easiest way to retrieve data from a bucket is
+to access that part of the `str_bucket' structure directly.  For a
+given bucket pointer B, one may access B`->bucket' as a `char *' to
+retrieve the contents of the bucket.
+
+   Other more specialized access methods are detailed below.  Most of
+these are useful in order to duplicate stream behavior for such
+applications as `lex'.
+
+ -- Function: char * strb_strdup (str_bucket *B)
+     This function uses `strdup(3)' to make a copy of the current
+     contents of B.  The caller is responsible for freeing this memory.
+     Note that `NULL' will be returned both in the event of an error
+     and if no data is currently stored in B.
+
+ -- Function: int strb_getc (str_bucket *B, char *BUF, int LEN)
+     Created mainly for interfacing with `lex', this function utilizes
+     the `loc' element of the `str_bucket' structure to keep a kind of
+     place-holder in bucket B.  It returns LEN characters, storing them
+     in BUF as a side-effect.  It does not allocate memory.  The return
+     value is the number of characters read.  If the end of BUF is
+     found, `EOF' is appended to BUF.
+
+ -- Function: void strb_ungetc (str_bucket *B, int COUNT)
+     This function moves the `loc' place-holder back COUNT characters,
+     thus duplicating an `ungetc(3)' call on a normal filestream.  It
+     will not allow `loc' to be pushed back before the beginning of the
+     data stored in B.
+
+
+File: bucket,  Node: Reusing Buckets,  Prev: Retrieving Strings,  Up: String Buckets
+
+3.4 Reusing Buckets
+===================
+
+Once a bucket has been used, it is possible to reuse it without getting
+rid of all of that precious memory that has been allocated.  Two
+previously-discussed functions are perfect for this purpose, namely
+`strb_ready' and `strb_set'.  However, both of these allocate new
+memory and free old memory.  For this reason, the following function
+exists.
+
+ -- Function: void strb_reset (str_bucket *B)
+     This function uses `memset(3)' to zero-out the currently allocated
+     buffer in bucket B.  It also resets all relevant counters and
+     pointers.  It does not allocate new memory or free old memory.
+
+
+File: bucket,  Node: Use with Lex,  Next: Index,  Prev: String Buckets,  Up: Top
+
+4 Use with Lex
+**************
+
+One of the most useful applications of the String Bucket library is to
+use it as a fake input stream with `lex(1)'.  This allows a lexical
+analyzer to receive input from a string instead of a normal I/O stream,
+opening a whole new range of possibilities to the resourceful
+programmer. Please note that this has only been tested with modern
+versions of `flex(1)'.
+
+   Near the top of the rule file, one must redefine the macro
+`YY_INPUT' to read input characters from a bucket using `strb_getc'.
+This is fairly simple to do, and a quick outline is included below.
+Note that this also allows `lex' to read multiple characters at once,
+which improves performance.
+
+     #include <bucket/bucket.h>
+     #include <bucket/strlib.h>
+
+     str_bucket * Bucket = NULL;
+
+     #ifdef YY_INPUT
+     # undef YY_INPUT
+     #endif
+     #define YY_INPUT(buf, result, max_size) memset(buf, 0, max_size); \
+              result = strb_getc(Bucket, buf, max_size);
+
+   It is then the responsibility of the programmer to write a lexer
+initialization function which points `Bucket' at a new bucket and
+populates it with the lexer input.  Something similar to the following
+function will probably serve most needs.
+
+     int
+     init_lexer (char * s)
+     {
+         if (Bucket == NULL) {
+             Bucket = new_str_bucket();
+             strb_set(Bucket, s);
+         } else {
+             strb_reset(Bucket);
+             strb_puts(Bucket, s, 0);
+         }
+
+         BEGIN INITIAL;
+
+         return 0;
+     }
+
+   Rules may now be written as normal.  It is also possible for the
+lexer to be used repeatedly by reusing `Bucket' via multiple calls to
+`init_lexer'.
+
+
+File: bucket,  Node: Index,  Prev: Use with Lex,  Up: Top
+
+Index
+*****
+
+ [index ]
+* Menu:
+
+* allocating buckets:                    Creating Buckets.     (line  6)
+* appending characters:                  Storing Strings.      (line 32)
+* appending strings:                     Storing Strings.      (line 25)
+* bucket access:                         Retrieving Strings.   (line  6)
+* bucket creation:                       Creating Buckets.     (line  6)
+* bucket input:                          Storing Strings.      (line  6)
+* bucket reuse:                          Reusing Buckets.      (line 14)
+* bucket strings:                        Retrieving Strings.   (line  6)
+* buffering input:                       Storing Strings.      (line  6)
+* buffers:                               String Buckets.       (line  6)
+* Changing Case:                         The String Library.   (line 43)
+* compilation:                           Getting Started.      (line  6)
+* concatenating buckets:                 Storing Strings.      (line 37)
+* configure:                             Getting Started.      (line  6)
+* destroy_str_bucket:                    Creating Buckets.     (line 28)
+* dynamic strings:                       String Buckets.       (line  6)
+* flex:                                  Use with Lex.         (line  6)
+* formatted input:                       Storing Strings.      (line 42)
+* incremental read:                      Storing Strings.      (line  6)
+* init_lexer:                            Use with Lex.         (line 35)
+* installation:                          Getting Started.      (line  6)
+* internal functions:                    Storing Strings.      (line 74)
+* lex:                                   Use with Lex.         (line  6)
+* lexical parsers:                       Use with Lex.         (line  6)
+* memory usage:                          Creating Buckets.     (line  6)
+* new_str_bucket <1>:                    Use with Lex.         (line 35)
+* new_str_bucket:                        Creating Buckets.     (line 11)
+* resetting buckets:                     Reusing Buckets.      (line 14)
+* Retrieving Strings:                    Retrieving Strings.   (line  6)
+* Reusing Buckets:                       Reusing Buckets.      (line  6)
+* storage, strings:                      Storing Strings.      (line  6)
+* str_bucket <1>:                        Storing Strings.      (line 20)
+* str_bucket:                            String Buckets.       (line  6)
+* strb_appendf:                          Storing Strings.      (line 42)
+* strb_concat:                           Storing Strings.      (line 37)
+* strb_getc <1>:                         Use with Lex.         (line 19)
+* strb_getc:                             Retrieving Strings.   (line 23)
+* strb_putc:                             Storing Strings.      (line 32)
+* strb_puts:                             Storing Strings.      (line 25)
+* strb_ready <1>:                        Reusing Buckets.      (line  6)
+* strb_ready:                            Creating Buckets.     (line 17)
+* strb_reset:                            Reusing Buckets.      (line 14)
+* strb_set <1>:                          Use with Lex.         (line 35)
+* strb_set <2>:                          Reusing Buckets.      (line  6)
+* strb_set:                              Storing Strings.      (line 20)
+* strb_strdup:                           Retrieving Strings.   (line 17)
+* strb_ungetc:                           Retrieving Strings.   (line 31)
+* strb_vappendf:                         Storing Strings.      (line 74)
+* String Buckets:                        String Buckets.       (line  6)
+* stripping whitespace:                  The String Library.   (line 27)
+* strlower:                              The String Library.   (line 52)
+* strspace:                              The String Library.   (line 27)
+* strstripfinal:                         The String Library.   (line 37)
+* strstriplead:                          The String Library.   (line 32)
+* strunesc:                              The String Library.   (line 72)
+* strupper:                              The String Library.   (line 48)
+* strwords:                              The String Library.   (line 63)
+* Use with Lex:                          Use with Lex.         (line  6)
+* whitespace:                            The String Library.   (line 16)
+* whitespace, stripping:                 The String Library.   (line 27)
+* YY_INPUT:                              Use with Lex.         (line 19)
+
+
+
+Tag Table:
+Node: Top68
+Node: Getting Started709
+Node: The String Library1336
+Node: String Buckets4486
+Node: Creating Buckets5323
+Node: Storing Strings6637
+Node: Retrieving Strings9680
+Node: Reusing Buckets11360
+Node: Use with Lex12092
+Node: Index13855
+
+End Tag Table

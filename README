@@ -1,0 +1,8 @@
+-*- text -*-
+
+This is a simple string buffer library, called libbucket.  You can
+hopefully learn more about it by reading the header files for now.  If
+you have specific questions, feel free to e-mail me.  I haven't gotten
+around to writing the documentation yet.
+
+
