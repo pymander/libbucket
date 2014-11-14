@@ -1,6 +1,6 @@
 \input texinfo @c -*- texinfo -*-
 @c %** start of header
-@setfilename bucket
+@setfilename bucket.info
 @settitle The String Bucket Library
 @setchapternewpage on
 @c %**end of header
@@ -20,7 +20,7 @@
 
 @c  The following two commands
 @c  start the copyright page.
-Copyright @copyright{} 2002 @uref{http://www.musiciansfriend.com/,{Musician's Friend, Inc.}}
+Copyright @copyright{} 2002 Musician's Friend, Inc.
 
 All rights reserved.
 @end titlepage

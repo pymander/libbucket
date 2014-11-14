@@ -15,3 +15,14 @@ config.sub
 configure
 depcomp
 install-sh
+compile
+m4/
+*.o
+*.lo
+config.h
+*.la
+libtool
+stamp-h1
+doc/*.info
+doc/version.texi
+doc/stamp-vti
